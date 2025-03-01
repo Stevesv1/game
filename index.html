@@ -7,7 +7,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
   <style>
-    /* Existing styles remain unchanged */
     :root {
       --primary: #1a1a1a;
       --secondary: #FFD700;
@@ -71,6 +70,10 @@
     .lives-img.active {
       opacity: 1;
       filter: drop-shadow(0 0 5px var(--danger));
+    }
+    .centered-container {
+      display: flex;
+      justify-content: center;
     }
     #game-container {
       display: grid;
@@ -160,6 +163,12 @@
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(255, 215, 0, 0.5);
     }
+    #button-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+    }
     .game-over, #rules-modal {
       position: fixed;
       top: 0;
@@ -179,30 +188,39 @@
     #rules-modal {
       background: rgb(0, 0, 0);
       border: 2px solid var(--secondary);
-      padding: 40px;
+      padding: 30px;
       border-radius: 15px;
+      width: 500px;
+      height: 500px;
       max-width: 600px;
       margin: auto;
       text-align: center;
-      transform: perspective(1000px) rotateX(5deg);
+      /* Removed tilt: transform: perspective(1000px) rotateX(5deg); */
       transform-origin: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
     #rules-modal h1 {
       font-family: 'Poppins', sans-serif;
       font-weight: 700;
-      font-size: 2.5em;
+      font-size: 2em;
       margin-bottom: 20px;
       color: var(--secondary);
     }
     #rules-modal ul {
       list-style: none;
-      padding: 0;
-      font-size: 1.2em;
+      padding: 0 20px;
+      font-size: 1em;
+      line-height: 1.2;
       text-align: left;
+      flex-grow: 1;
     }
     #rules-modal li {
-      margin: 15px 0;
-      line-height: 1.5;
+      margin: 5px 0;
+    }
+    #rules-modal button {
+      margin-top: 20px;
     }
     #stars {
       font-size: 1.8em;
@@ -221,40 +239,49 @@
       50% { transform: scale(1.2); }
       100% { transform: scale(1); }
     }
+    #refill-message {
+      font-size: 1.2em;
+      margin: 20px 0;
+      color: var(--secondary);
+    }
   </style>
 </head>
 <body>
   <div id="refill-timer">Next life in: 60s</div>
-  <div id="stats">
-    <div class="stat-box">
-      <h3>Stars</h3>
-      <div id="stars">5</div>
+  <div id="game-interface" style="display: none; position: relative; z-index: 1;">
+    <div id="stats">
+      <div class="stat-box">
+        <h3>Stars</h3>
+        <div id="stars">5</div>
+      </div>
+      <div class="stat-box">
+        <h3>Lives</h3>
+        <div class="lives-container" id="lives-container"></div>
+      </div>
     </div>
-    <div class="stat-box">
-      <h3>Lives</h3>
-      <div class="lives-container" id="lives-container"></div>
+    <div class="centered-container">
+      <div id="game-container"></div>
     </div>
-  </div>
-  <div id="game-container"></div>
-  <div>
-    <button id="sacrifice-btn">Sacrifice Life for 5★</button>
-    <button id="cash-out-btn">Cash Out</button>
+    <div id="button-container">
+      <button id="sacrifice-btn">Sacrifice Life for 5★</button>
+      <button id="cash-out-btn">Cash Out</button>
+    </div>
   </div>
   <div class="game-over" id="game-over">
     <h1 id="game-over-title">Game Over!</h1>
+    <div id="refill-message" style="display: none;">Wait until <span id="refill-time"></span> sec to refill one life.</div>
     <button id="play-again-btn">Play Again</button>
   </div>
-  <div id="rules-modal" class="show">
+  <div id="rules-modal" class="show" style="z-index: 1000;">
     <h1>Star Quest Rules</h1>
     <ul>
-      <li>▫️ You start with 5 lives and 5 stars.</li>
-      <li>▫️ Click boxes to reveal stars or bombs (2 bombs per 9 boxes).</li>
-      <li>▫️ Each click costs 1 star.</li>
+      <li>▫️ Start with 5 lives and 5 stars.</li>
+      <li>▫️ Click boxes (cost 1 star) to find stars or bombs (2 bombs/9 boxes).</li>
       <li>▫️ Stars: Gain 1-10 stars randomly.</li>
-      <li>▫️ Bombs: Lose a life and all stars earned this cycle.</li>
-      <li>▫️ Reveal 7 safe boxes to win 10 bonus stars and reset.</li>
-      <li>▫️ Sacrifice a life for 5 stars if you have 0 stars (min 2 lives).</li>
-      <li>▫️ Lives refill every 60s, up to 5.</li>
+      <li>▫️ Bombs: Lose a life and cycle stars.</li>
+      <li>▫️ Reveal 7 safe boxes for 10 bonus stars and reset.</li>
+      <li>▫️ Sacrifice a life for 5 stars if 0 stars (min 2 lives).</li>
+      <li>▫️ Lives refill every 60s (max 5).</li>
       <li>▫️ Cash out anytime or lose all lives to end.</li>
     </ul>
     <button id="start-game-btn">Start Game</button>
@@ -283,25 +310,27 @@
         colors: ['FFE400', 'FFBD00', 'E89400', 'FFCA6C', 'FDFFB8']
       };
 
-      function shoot() {
+      function shoot(origin) {
         confetti({
           ...defaults,
           particleCount: 40,
           scalar: 1.2,
-          shapes: ['star']
+          shapes: ['star'],
+          origin: origin
         });
         confetti({
           ...defaults,
           particleCount: 10,
           scalar: 0.75,
-          shapes: ['circle']
+          shapes: ['circle'],
+          origin: origin
         });
       }
 
-      function createCelebration() {
-        setTimeout(shoot, 0);
-        setTimeout(shoot, 100);
-        setTimeout(shoot, 200);
+      function createCelebration(origin) {
+        setTimeout(() => shoot(origin), 0);
+        setTimeout(() => shoot(origin), 100);
+        setTimeout(() => shoot(origin), 200);
       }
 
       function initializeGame() {
@@ -332,6 +361,18 @@
       }
 
       function handleBoxClick(event) {
+        // Check if lives are zero first
+        if (lives === 0) {
+          const nextRefillTime = localStorage.getItem('nextRefillTime');
+          if (nextRefillTime) {
+            const timeLeft = Math.max(0, Math.ceil((nextRefillTime - Date.now()) / 1000));
+            alert(`Wait until ${timeLeft} sec to refill one life.`);
+          } else {
+            alert("Waiting for life refill.");
+          }
+          return;
+        }
+
         if (!gameActive || stars < 1) return;
 
         updateStars(stars - 1);
@@ -358,13 +399,18 @@
             gameActive = false;
             document.getElementById('game-over').classList.add('show');
             document.getElementById('game-over-title').textContent = 'Game Over!';
+            document.getElementById('refill-message').style.display = 'block';
           } else {
             setTimeout(() => {
               initializeGame();
             }, 1500);
           }
         } else {
-          createCelebration();
+          const rect = box.getBoundingClientRect();
+          const x = (rect.left + rect.width / 2) / window.innerWidth;
+          const y = (rect.top + rect.height / 2) / window.innerHeight;
+          const origin = { x, y };
+          createCelebration(origin);
           const gainedStars = Math.floor(Math.random() * 10) + 1;
           cycleStars += gainedStars;
           updateStars(stars + gainedStars);
@@ -450,12 +496,19 @@
       setInterval(() => {
         const nextRefillTime = localStorage.getItem('nextRefillTime');
         const timerDisplay = document.getElementById('refill-timer');
+        const refillTimeSpan = document.getElementById('refill-time');
         if (nextRefillTime) {
           const timeLeft = Math.max(0, Math.ceil((nextRefillTime - Date.now()) / 1000));
-          timerDisplay.textContent = `Next life in: ${timeLeft}s`;
-          timerDisplay.style.display = timeLeft > 0 ? 'block' : 'none';
+          if (timerDisplay) {
+            timerDisplay.textContent = `Next life in: ${timeLeft}s`;
+            timerDisplay.style.display = timeLeft > 0 ? 'block' : 'none';
+          }
+          if (refillTimeSpan && document.getElementById('game-over').classList.contains('show')) {
+            refillTimeSpan.textContent = timeLeft;
+          }
         } else {
-          timerDisplay.style.display = 'none';
+          if (timerDisplay) timerDisplay.style.display = 'none';
+          if (refillTimeSpan) refillTimeSpan.parentElement.style.display = 'none';
         }
       }, 1000);
 
@@ -472,7 +525,8 @@
           gameActive = false;
           document.getElementById('game-over').classList.add('show');
           document.getElementById('game-over-title').textContent = `Cashed Out with ${stars} stars!`;
-          createCelebration();
+          document.getElementById('refill-message').style.display = 'none';
+          createCelebration({ x: 0.5, y: 0.5 });
         }
       });
 
@@ -484,7 +538,8 @@
       });
 
       document.getElementById('start-game-btn').addEventListener('click', () => {
-        document.getElementById('rules-modal').classList.remove('show');
+        document.getElementById('rules-modal').style.display = 'none';
+        document.getElementById('game-interface').style.display = 'block';
         initializeGame();
       });
 
